@@ -11,15 +11,15 @@ import java.util.Properties;
 
 
 public class EtlBatchClass implements Job{
-    static final String redshiftDriver = "jdbc:redshift://ddm-dev-dw-rs.cgtezcyc68ol.ap-northeast-2.redshift.amazonaws.com:45439/ldddmp";
+//    static final String redshiftDriver = "jdbc:redshift://ddm-dev-dw-rs.cgtezcyc68ol.ap-northeast-2.redshift.amazonaws.com:45439/ldddmp";
 //    static final String redshiftDB = "ldddmp";
-    static final String redshiftUserName = "ldfsdba";
-    static final String redshiftUserPW = "Password1!";
+//    static final String redshiftUserName = "ldfsdba";
+//    static final String redshiftUserPW = "Password1!";
 
     @Override
     public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
-        Connection conn = null;
-        Statement stmt = null;
+//        Connection conn = null;
+//        Statement stmt = null;
         System.out.println(">>>>>>>>>>> ETL Quartz Start 시작 : " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss")));
 
 //        try{
