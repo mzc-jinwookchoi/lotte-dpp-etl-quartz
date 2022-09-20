@@ -14,7 +14,7 @@ public class CrontabTrigger {
             JobDetail jobA = JobBuilder.newJob(EtlBatchClass.class).withIdentity("jobA", "group2").build();
 
 //            String cronExp = "0 0 6 * * ?"; // 운영 매일 오전 6시
-            String cronExp = "0/10 * * * * ?"; // 매 10초 간격
+            String cronExp = "0/30 * * * * ?"; // 매 30초 간격
 //            String cronExp = "0 0/1 * * * ?"; // 매 1분 간격
 //            String cronExp = "0/30 * * * * ?"; // 매 30초 간격
 //            String cronExp = "0 0 0/1 * * ?"; // 매 1시간 간격
