@@ -23,34 +23,44 @@ public class EtlBatchClass implements Job{
 
     @Override
     public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
-        Connection conn = null;
-        Statement stmt = null;
+        Connection redShiftConn = null;
+        Statement redShiftStmt = null;
+        Connection mySqlConn = null;
+        Statement mySqlStmt = null;
         System.out.println(">>>>>>>>>>> ETL Quartz Start 시작 : " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss")));
 
         try{
             Class.forName("com.amazon.redshift.jdbc.Driver");
+            Driver mySqlDriver = (Driver) Class.forName("com.mysql.cj.jdbc.Driver").newInstance();
 
             System.out.println("Connecting to database...");
-            Properties props = new Properties();
+            Properties redShiftProps = new Properties();
+            Properties mySqlProps = new Properties();
 
             //Uncomment the following line if using a keystore.
             //props.setProperty("ssl", "true");
-            props.setProperty("user", redshiftUserName);
-            props.setProperty("password", redshiftUserPW);
-            conn = DriverManager.getConnection(redshiftConnectionDEV, props);
+            redShiftProps.setProperty("user", redshiftUserName);
+            redShiftProps.setProperty("password", redshiftUserPW);
+            redShiftConn = DriverManager.getConnection(redshiftConnectionDEV, redShiftProps);
+            redShiftStmt = redShiftConn.createStatement();
+
+            //mySql
+            mySqlProps.setProperty("user", mySqlUserName);
+            mySqlProps.setProperty("password", mySqlUserPW);
+            mySqlConn = mySqlDriver.connect(mySqlConnectionDEV, mySqlProps);
+            mySqlStmt = mySqlConn.createStatement();
 
             //Try a simple query.
             System.out.println("Listing system tables...");
-            stmt = conn.createStatement();
             String sql;
             sql = "select * from ldddmp.ddmdm_test.tb_aly_ofr_prmtn_addtn_xclud_f limit 10;";
-            ResultSet rs = stmt.executeQuery(sql);
+            ResultSet redShiftRs = redShiftStmt.executeQuery(sql);
 
             //Get the data from the result set.
-            while(rs.next()){
+            while(redShiftRs.next()){
                 //Retrieve two columns.
-                String feat_nm = rs.getString("cust360_feat_nm");
-                String feat_val = rs.getString("cust360_feat_val");
+                String feat_nm = redShiftRs.getString("cust360_feat_nm");
+                String feat_val = redShiftRs.getString("cust360_feat_val");
 
                 //Display values.
                 System.out.print("feat_nm: " + feat_nm);
@@ -59,48 +69,43 @@ public class EtlBatchClass implements Job{
 
             // MySQL 쿼리 샘플
             System.out.println("MySQL 접속 시작");
-            try(Connection mySqlConnection = DriverManager.getConnection(mySqlConnectionDEV, mySqlUserName, mySqlUserPW);
-            Statement mySqlStmt = mySqlConnection.createStatement()){
-                System.out.println("MySQL 접속 완료");
-                String mySqlSampleQuery;
-                mySqlSampleQuery = "SELECT * FROM dpp.users limit 10";
-                ResultSet mySqlRs = mySqlStmt.executeQuery(mySqlSampleQuery);
+            String mySqlSample = "select * from dpp.users limit 10;";
+            ResultSet mySqlRs = mySqlStmt.executeQuery(mySqlSample);
 
-                while (mySqlRs.next()){
-                    String login_id = mySqlRs.getString("login_id");
-                    String nickname = mySqlRs.getString("nickname");
+            while (mySqlRs.next()){
+                String login_id = mySqlRs.getString("login_id");
+                String nickname = mySqlRs.getString("nickname");
 
-                    System.out.print("login_id: " + login_id);
-                    System.out.println(", nickname: " + nickname);
-                }
-                mySqlRs.close();
-                mySqlStmt.close();
-                mySqlConnection.close();
-            }catch (SQLException e){
-                e.printStackTrace();
-            }catch (Exception e){
-                e.printStackTrace();
+                System.out.print("login_id: " + login_id);
+                System.out.println(", nickname: " + nickname);
             }
-            rs.close();
-            stmt.close();
-            conn.close();
+
+            redShiftRs.close();
+            redShiftStmt.close();
+            redShiftConn.close();
+            mySqlRs.close();
+            mySqlStmt.close();
+            mySqlConn.close();
 
         }catch (Exception e){
             e.printStackTrace();
         }finally{
             //Finally block to close resources.
             try{
-                if(stmt!=null)
-                    stmt.close();
+                if(redShiftStmt!=null || mySqlStmt!=null)
+                    redShiftStmt.close();
+                    mySqlStmt.close();
             }catch(Exception ex){
             }// nothing we can do
             try{
-                if(conn!=null)
-                    conn.close();
+                if(redShiftConn!=null || mySqlConn!=null)
+                    redShiftConn.close();
+                    mySqlConn.close();
             }catch(Exception ex){
                 ex.printStackTrace();
             }
         }
-        System.out.println("Finished connectivity test.");
+        System.out.println("Finished connectivity test. System Exit");
+        System.exit(0);
     }
 }
