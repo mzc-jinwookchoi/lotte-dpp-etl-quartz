@@ -46,7 +46,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>com.sene.CrontabTrigger</mainClass>
+                            <mainClass>com.sene.EtlMainProcess</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

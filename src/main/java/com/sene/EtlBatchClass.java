@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Properties;
 
 
-public class EtlBatchClass{
+public class EtlBatchClass {
     // Redshift, MySQL Connect Info
     static final String redshiftConnectionDEV = "jdbc:redshift://ddm-dev-dw-rs.cgtezcyc68ol.ap-northeast-2.redshift.amazonaws.com:45439/ldddmp";
     static final String redshiftConnectionPRD = "jdbc:redshift://ddm-prd-dw-rs.cgtezcyc68ol.ap-northeast-2.redshift.amazonaws.com:45439/ldddmp";
