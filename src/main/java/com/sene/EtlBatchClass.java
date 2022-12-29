@@ -1,8 +1,5 @@
 package com.sene;
 
-import org.quartz.Job;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -10,7 +7,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Properties;
 
 
-public class EtlBatchClass implements Job{
+public class EtlBatchClass{
+    // Redshift, MySQL Connect Info
     static final String redshiftConnectionDEV = "jdbc:redshift://ddm-dev-dw-rs.cgtezcyc68ol.ap-northeast-2.redshift.amazonaws.com:45439/ldddmp";
     static final String redshiftConnectionPRD = "jdbc:redshift://ddm-prd-dw-rs.cgtezcyc68ol.ap-northeast-2.redshift.amazonaws.com:45439/ldddmp";
     static final String redshiftUserName = "ldfsdba";  // dev
@@ -21,13 +19,12 @@ public class EtlBatchClass implements Job{
     static final String mySqlUserPW = "ldfsdbA123!#%";
 
 
-    @Override
-    public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
+    public void EtlProcess() {
         Connection redShiftConn = null;
         Statement redShiftStmt = null;
         Connection mySqlConn = null;
         Statement mySqlStmt = null;
-        System.out.println(">>>>>>>>>>> ETL Quartz Start 시작 : " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss")));
+        System.out.println(">>>>>>>>>>> MySQL -> Redshift ETL Program Start : " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss")));
 
         try{
             Class.forName("com.amazon.redshift.jdbc.Driver");
@@ -37,49 +34,109 @@ public class EtlBatchClass implements Job{
             Properties redShiftProps = new Properties();
             Properties mySqlProps = new Properties();
 
-            //Uncomment the following line if using a keystore.
-            //props.setProperty("ssl", "true");
+            //Redshift Connect
             redShiftProps.setProperty("user", redshiftUserName);
             redShiftProps.setProperty("password", redshiftUserPW);
             redShiftConn = DriverManager.getConnection(redshiftConnectionDEV, redShiftProps);
             redShiftStmt = redShiftConn.createStatement();
 
-            //mySql
+            //MySQL Connect
             mySqlProps.setProperty("user", mySqlUserName);
             mySqlProps.setProperty("password", mySqlUserPW);
             mySqlConn = mySqlDriver.connect(mySqlConnectionDEV, mySqlProps);
             mySqlStmt = mySqlConn.createStatement();
 
-            //Try a simple query.
-            System.out.println("Listing system tables...");
-            String sql;
-            sql = "select * from ldddmp.ddmdm_test.tb_aly_ofr_prmtn_addtn_xclud_f limit 10;";
-            ResultSet redShiftRs = redShiftStmt.executeQuery(sql);
+            //Query Migration Start
+            System.out.println("Query Migration Start...");
 
-            //Get the data from the result set.
-            while(redShiftRs.next()){
-                //Retrieve two columns.
-                String feat_nm = redShiftRs.getString("cust360_feat_nm");
-                String feat_val = redShiftRs.getString("cust360_feat_val");
+            String targetSchema = "ldddmp.ddmdm_test";                                 // Target 스키마 설정
+            String sourceSchema = "dpp_etl";                                           // Source 스키마 설정
+            String targetTable = "tb_aly_ofr_prmtn_addtn_xclud_f";                      // Source, Target 테이블 설정
+            String selectTargetSql = "SELECT * FROM " + targetSchema + "." + targetTable;     // ResultSetMetaData 를 추출 하기 위한 targetTable Select
+            String selectSourceSql = "SELECT * FROM " + sourceSchema + "." + targetTable;     // ResultSetMetaData 를 추출 하기 위한 sourceTable Select
+            String truncateTargetSql = "TRUNCATE " + targetSchema + "." + targetTable;        // Insert 이전 Truncate
 
-                //Display values.
-                System.out.print("feat_nm: " + feat_nm);
-                System.out.println(", feat_val: " + feat_val);
+            ResultSet redShiftRs = redShiftStmt.executeQuery(selectTargetSql);          // Redshift ResultSet 선언
+            ResultSetMetaData redShiftRsMetaData = redShiftRs.getMetaData();            // Redshift ResultSetMetaData 선언
+            ResultSet mySqlRs = mySqlStmt.executeQuery(selectSourceSql);                // MySQL ResultSet 선언
+            ResultSetMetaData mySqlRsMetaData = mySqlRs.getMetaData();                  // MySQL ResultSetMetaData 선언
+
+            StringBuffer stringBuffer = new StringBuffer();                             // insertMigrateSql 조합을 위한 StringBuffer 선언
+
+            stringBuffer.append("INSERT INTO ");
+            stringBuffer.append(targetSchema);
+            stringBuffer.append(".");
+            stringBuffer.append(targetTable);
+            stringBuffer.append(" (");
+
+            int columnCnt = mySqlRsMetaData.getColumnCount();                           // MySQL 컬럼 카운트
+            String[] columnNames = new String[columnCnt];                               // MySQL 컬럼명 배열 선언
+
+            for(int n=1; n<=columnCnt; n++){                                            // MySQL 컬럼명 추출 후 append
+                columnNames[n-1] = mySqlRsMetaData.getColumnName(n);
+//                System.out.println("columnNames : "+columnNames[n-1]);
+                stringBuffer.append(columnNames[n-1]);
+                if(n<columnCnt){
+                    stringBuffer.append(", ");
+                }else if(n==columnCnt){
+                    stringBuffer.append(") VALUES ");
+                }
             }
 
-            // MySQL 쿼리 샘플
-            System.out.println("MySQL 접속 시작");
-            String mySqlSample = "select * from dpp.users limit 10;";
-            ResultSet mySqlRs = mySqlStmt.executeQuery(mySqlSample);
-
+            String insertMigrateSql = stringBuffer.toString();
+            System.out.println("insertMigrateSql : "+insertMigrateSql);
+            int RsCnt = 0;
             while (mySqlRs.next()){
-                String login_id = mySqlRs.getString("login_id");
-                String nickname = mySqlRs.getString("nickname");
+                if(RsCnt != 0){
+                    stringBuffer.append(", ");
+                }
+                stringBuffer.append("(");
+                for(int i=1; i<=columnCnt; i++){
+                    int columnType = mySqlRsMetaData.getColumnType(i);  // 컬럼 타입 추출
 
-                System.out.print("login_id: " + login_id);
-                System.out.println(", nickname: " + nickname);
+                    if(columnType==Types.TIME){                         // 컬럼 타입 구분
+                        stringBuffer.append("'");
+                        stringBuffer.append(mySqlRs.getTime(i));
+                        stringBuffer.append("'");
+                    }else if(columnType==Types.TIMESTAMP){
+                        stringBuffer.append("'");
+                        stringBuffer.append(mySqlRs.getTimestamp(i));
+                        stringBuffer.append("'");
+                    }else if(columnType==Types.DATE){
+                        stringBuffer.append("'");
+                        stringBuffer.append(mySqlRs.getDate(i));
+                        stringBuffer.append("'");
+                    }else if(columnType==Types.INTEGER){
+                        stringBuffer.append(mySqlRs.getInt(i));
+                    }else {
+                        stringBuffer.append("'");
+                        stringBuffer.append(mySqlRs.getString(i));
+                        stringBuffer.append("'");
+                    }
+
+                    if(i<columnCnt){
+                        stringBuffer.append(", ");
+                    }else if(i==columnCnt){
+                        stringBuffer.append(")");
+                    }
+                }
+                RsCnt++;
             }
 
+            String insertMigrateSql2 = stringBuffer.toString();
+            System.out.println("insertMigrateSql2 : "+insertMigrateSql2);
+            System.out.println("columnCnt : "+columnCnt);
+            System.out.println("RsCnt : "+RsCnt);
+
+            System.out.println(">>>>>>>>>>> TargetTable TRUNCATE 시도");
+            redShiftStmt.executeUpdate(truncateTargetSql);
+            System.out.println(">>>>>>>>>>> TargetTable TRUNCATE 완료");
+            System.out.println(">>>>>>>>>>> TargetTable INSERT 시도");
+            redShiftStmt.executeUpdate(insertMigrateSql2);
+            System.out.println(">>>>>>>>>>> TargetTable INSERT 완료");
+
+
+            // rs, stmt, conn Close
             redShiftRs.close();
             redShiftStmt.close();
             redShiftConn.close();
@@ -105,7 +162,8 @@ public class EtlBatchClass implements Job{
                 ex.printStackTrace();
             }
         }
-        System.out.println("Finished connectivity test. System Exit");
+        System.out.println(">>>>>>>>>>> MySQL -> Redshift ETL Program End : " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss")));
+        System.out.println(">>>>>>>>>>> ETL Program Exit : " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss")));
         System.exit(0);
     }
 }
