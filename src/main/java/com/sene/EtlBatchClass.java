@@ -30,7 +30,7 @@ public class EtlBatchClass {
             Class.forName("com.amazon.redshift.jdbc.Driver");
             Driver mySqlDriver = (Driver) Class.forName("com.mysql.cj.jdbc.Driver").newInstance();
 
-            System.out.println("Connecting to database...");
+            System.out.println(">>>>>>>>>>> Connecting to database");
             Properties redShiftProps = new Properties();
             Properties mySqlProps = new Properties();
 
@@ -47,11 +47,11 @@ public class EtlBatchClass {
             mySqlStmt = mySqlConn.createStatement();
 
             //Query Migration Start
-            System.out.println("Query Migration Start...");
+            System.out.println(">>>>>>>>>>> Query Migration Start");
 
             String targetSchema = "ldddmp.ddmdm_test";                                 // Target 스키마 설정
             String sourceSchema = "dpp_etl";                                           // Source 스키마 설정
-            String targetTable = "tb_aly_ofr_prmtn_addtn_xclud_f";                      // Source, Target 테이블 설정
+            String targetTable = "tb_aly_ofr_prmtn_addtn_xclud_f";                     // Source, Target 테이블 설정
             String selectTargetSql = "SELECT * FROM " + targetSchema + "." + targetTable;     // ResultSetMetaData 를 추출 하기 위한 targetTable Select
             String selectSourceSql = "SELECT * FROM " + sourceSchema + "." + targetTable;     // ResultSetMetaData 를 추출 하기 위한 sourceTable Select
             String truncateTargetSql = "TRUNCATE " + targetSchema + "." + targetTable;        // Insert 이전 Truncate
